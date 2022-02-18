@@ -39,7 +39,7 @@ main(int argc, char **argv) {
     Schema *schema = parseSchema(schemaTxt);
     Table *tbl;
 
-    UNIMPLEMENTED;
+        
     if (argc == 2 && *(argv[1]) == 's') {
 	UNIMPLEMENTED;
 	// invoke Table_Scan with printRow, which will be invoked for each row in the table.
