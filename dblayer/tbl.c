@@ -14,7 +14,7 @@ int  getLen(int slot, char *pageBuf) {
     int pointer_to_free_space_value = *(int *)(&pageBuf[5]);
     int num_records = *(int *)(&pageBuf[1]);
     int record_pointer_value = *(int *)(&pageBuf[9+4*slot]);
-    printf("%d %d %d\n", slot, record_pointer_value, pointer_to_free_space_value);
+    // printf("%d %d %d\n", slot, record_pointer_value, pointer_to_free_space_value);
     if(slot == num_records - 1) {
         return record_pointer_value - pointer_to_free_space_value;
     }
@@ -58,38 +58,32 @@ Table_Open(char *dbname, Schema *schema, bool overwrite, Table **ptable)
     PF_Init();
     int res = PF_CreateFile(dbname);
 
-    if (res == PFE_OK || (overwrite && res != PFE_OK))
+
+    if (res != PFE_OK && overwrite)
     {
-
-        if (res != PFE_OK && overwrite)
-        {
-            res = PF_DestroyFile(dbname); // what else necessaty for destroying file.. whould close page.. buffer.. etc.
-            if(res != PFE_OK) {
-                printf("Something bad happened. Returning...\n");
-                return 1;
-            }
-            int res = PF_CreateFile(dbname);
-            if(res != PFE_OK) {
-                printf("The code is buggy. Returning ...\n");
-                return 1;
-            }
+        res = PF_DestroyFile(dbname); // what else necessaty for destroying file.. whould close page.. buffer.. etc.
+        if(res != PFE_OK) {
+            printf("Something bad happened. Returning...\n");
+            return 1;
         }
-
-        *ptable = (Table *)malloc(sizeof(Table));
-        (*ptable)->schema = (Schema *)malloc(sizeof(Schema));
-        (*ptable)->dbname = strdup(dbname);
-        (*ptable)->fd = -1;
-        (*ptable)->schema->numColumns = schema->numColumns;
-        (*ptable)->schema->columns = (ColumnDesc **)malloc(schema->numColumns * sizeof(ColumnDesc *));
-
-        for (int i = 0; i < schema->numColumns; i++)
-        {
-            (*ptable)->schema->columns[i] = (ColumnDesc *)malloc(sizeof(ColumnDesc));
-            (*ptable)->schema->columns[i]->type = schema->columns[i]->type;
-            (*ptable)->schema->columns[i]->name = strdup(schema->columns[i]->name);
+        res = PF_CreateFile(dbname);
+        if(res != PFE_OK) {
+            printf("The code is buggy. Returning ...\n");
+            return 1;
         }
-    } else {
-        return 1;
+    }
+    *ptable = (Table *)malloc(sizeof(Table));
+    (*ptable)->schema = (Schema *)malloc(sizeof(Schema));
+    (*ptable)->dbname = strdup(dbname);
+    (*ptable)->fd = -1;
+    (*ptable)->schema->numColumns = schema->numColumns;
+    (*ptable)->schema->columns = (ColumnDesc **)malloc(schema->numColumns * sizeof(ColumnDesc *));
+
+    for (int i = 0; i < schema->numColumns; i++)
+    {
+        (*ptable)->schema->columns[i] = (ColumnDesc *)malloc(sizeof(ColumnDesc));
+        (*ptable)->schema->columns[i]->type = schema->columns[i]->type;
+        (*ptable)->schema->columns[i]->name = strdup(schema->columns[i]->name);
     }
 
     return 0;
@@ -138,7 +132,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     char *pagebuf;
     int found = 0;
     while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
-        printf("%d pgno\n", *pagenum);
+        // printf("%d pgno\n", *pagenum);
         // checking if the page has empty space for the record
         int pointer_to_free_space_value = *(int *)(&pagebuf[5]);
         int num_records = *(int *)(&pagebuf[1]);
@@ -151,9 +145,9 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
             PF_UnfixPage(fd, *pagenum, false);
         }
     }
-    printf("Iterated through pages found empty pageno : %d\n", *pagenum);
+    // printf("Iterated through pages found empty pageno : %d\n", *pagenum);
     if(*pagenum == -1 || found == 0) {
-        printf("I am here\n");
+        // printf("I am here\n");
         int ret = PF_AllocPage(fd, pagenum, &pagebuf);
         if(ret != PFE_OK) {
             printf("Error occured in insert. Returning...\n");
@@ -163,30 +157,30 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
         *(int *)(&pagebuf[1]) = 0;
         *(int *)(&pagebuf[5]) = PF_PAGE_SIZE - 1;
     }
-    printf("Created the page\n");
+    // printf("Created the page\n");
     // insert the record
     int pointer_to_free_space_value = *(int *)(&pagebuf[5]);
-    printf("%d fs\n", pointer_to_free_space_value);
+    // printf("%d fs\n", pointer_to_free_space_value);
     int num_records = *(int *)(&pagebuf[1]);
-    printf("%d nr\n", num_records);
+    // printf("%d nr\n", num_records);
     *(int *)(&pagebuf[1]) = num_records + 1;
     *(int *)(&pagebuf[9+4*num_records]) = pointer_to_free_space_value;
-    printf("%d len\n", len);
+    // printf("%d len\n", len);
     for(int i = 0 ; i < len; i++) {
         *(byte *)(&pagebuf[pointer_to_free_space_value - len + 1 + i]) = record[i];
-        printf("%c", (char)record[i]);
+        // printf("%c", (char)record[i]);
     }
-    printf("\n");
+    // printf("\n");
     *(int *)(&pagebuf[5]) = pointer_to_free_space_value - len;
     *(bool *)(&pagebuf[0]) = false;
     *rid = num_records + ((*pagenum)<<16);
-    for(int i = 0; i < PF_PAGE_SIZE; i++) {
-        printf("%d ", pagebuf[i]);
-    }
-    printf("\n");
-    printf("%d %d %d %d\n", *(int *)(&pagebuf[1]), *(int *)(&pagebuf[5]), *(int *)(&pagebuf[9]), *(int *)(&pagebuf[12]));
+    // for(int i = 0; i < PF_PAGE_SIZE; i++) {
+    //     printf("%d ", pagebuf[i]);
+    // }
+    // printf("\n");
+    // printf("%d %d %d %d\n", *(int *)(&pagebuf[1]), *(int *)(&pagebuf[5]), *(int *)(&pagebuf[9]), *(int *)(&pagebuf[12]));
     PF_UnfixPage(fd, *pagenum, true);
-    printf("Rid before exiting insert: %d\n", *rid);
+    // printf("Rid before exiting insert: %d\n", *rid);
     free(pagenum);
     return 0;
 }
@@ -202,7 +196,7 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
     int slot = rid & 0xFFFF;
     int pageNum = rid >> 16;
     int fd = tbl->fd;
-    printf("%d %d %d\n", slot, pageNum, fd);
+    // printf("%d %d %d\n", slot, pageNum, fd);
     if(fd < 0) {
         printf("The file is not open get operation on table. Returning...\n");
         return -1;
@@ -214,13 +208,13 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
         return -1;
     }
     int offset = getNthSlotOffset(slot, pagebuf);
-    printf("Offset in get function : %d\n", offset);
+    // printf("Offset in get function : %d\n", offset);
     if(offset < 0) {
         printf("The slot doesn't exist in the page. Returning..\n");
         return -1;
     }
     int length = getLen(slot, pagebuf);
-    printf("LEngth in get function : %d\n", length);
+    // printf("LEngth in get function : %d\n", length);
     for(int i = 0; i < min(maxlen, length); i ++) {
         record[i] = (byte)pagebuf[i];
     }
@@ -242,15 +236,19 @@ Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
     int *pagenum = (int*)malloc(sizeof(int));
     *pagenum = -1;
     char *pagebuf;
+    printf("I am here\n");
     while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
         int num_records = *(int *)(&pagebuf[1]);
+        printf("%d pgno, %d num_r\n", *pagenum, num_records);
         for(int i = 0; i < num_records; i++) {
             int rid = i + ((*pagenum)<<16);
             byte record[10000];
             int len = Table_Get(tbl, rid, record, 10000);
             callbackfn(callbackObj, rid, record, len);
         }
+        PF_UnfixPage(fd, *pagenum, false);
     }
+    printf("I have exited\n");
 
     // For each page obtained using PF_GetFirstPage and PF_GetNextPage
     //    for each record in that page,

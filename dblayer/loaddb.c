@@ -89,13 +89,12 @@ loadCSV() {
         return NULL;
     }
     tbl->fd = fd;
-    printf("%s %d %d\n", tbl->dbname, tbl->fd, tbl->schema->numColumns);
+    // printf("%s %d %d\n", tbl->dbname, tbl->fd, tbl->schema->numColumns);
     while ((line = fgets(buf, MAX_LINE_LEN, fp)) != NULL) {
         int n = split(line, ",", tokens);
         assert (n == sch->numColumns);
         int len = encode(sch, tokens, record, sizeof(record));
         RecId rid;
-        printf("1\n");
         int ret = Table_Insert(tbl, record, len, &rid);
         if(ret < 0) {
             printf("Error Occured in Table insert\n");
@@ -109,7 +108,7 @@ loadCSV() {
             printf("Bad\n");
             return NULL;
         }
-        printf("%d tg\n", t);
+        // printf("%d tg\n", t);
 
         // Indexing on the population column 
         int population = atoi(tokens[2]);
