@@ -20,9 +20,7 @@ typedef struct {
 
 typedef struct {
     Schema *schema;
-
-    UNIMPLEMENTED; 
-    
+    char *dbname;
 } Table ;
 
 typedef int RecId;
