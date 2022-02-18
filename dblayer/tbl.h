@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
     Schema *schema;
     char *dbname;
+    int fd;
 } Table ;
 
 typedef int RecId;
