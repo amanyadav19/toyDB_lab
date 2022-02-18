@@ -6,6 +6,7 @@
 #include "codec.h"
 #include "../pflayer/pf.h"
 
+#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
 #define SLOT_COUNT_OFFSET 2
 #define checkerr(err) {if (err < 0) {PF_PrintError(); exit(EXIT_FAILURE);}}
 
@@ -106,14 +107,14 @@ Table_Close(Table *tbl) {
     int *pagenum = (int*)malloc(sizeof(int));
     *pagenum = -1;
     char *pagebuf;
-    while(PF_GetNextPage(fd,pagenum,pagebuf) != PFE_EOF) {
+    while(PF_GetNextPage(fd,pagenum, &pagebuf) != PFE_EOF) {
         bool dirty = *(bool*)(&pagebuf[1]);
         if(dirty == true) {
             *(bool*)(&pagebuf[1]) = false;
-            PF_UnfixPage(fd, pagenum - 1,true);
+            PF_UnfixPage(fd, *pagenum - 1,true);
         }
         else {
-            PF_UnfixPage(fd, pagenum - 1,false);
+            PF_UnfixPage(fd, *pagenum - 1,false);
         }
     }
     PF_CloseFile(fd);
@@ -135,7 +136,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     *pagenum = -1;
     char *pagebuf;
     int found = 0;
-    while(PF_GetNextPage(fd,pagenum,pagebuf) != PFE_EOF) {
+    while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
         // checking if the page has empty space for the record
         int pointer_to_free_space_value = *(int *)(&pagebuf[5]);
         int num_records = *(int *)(&pagebuf[1]);
@@ -166,8 +167,9 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     }
     *(int *)(&pagebuf[5]) = pointer_to_free_space_value - len;
     *(bool *)(&pagebuf[0]) = true;
-    *rid = num_records + (*pagenum)<<16;
+    *rid = num_records + ((*pagenum)<<16);
     free(pagenum);
+    return 0;
 }
 
 #define checkerr(err) {if (err < 0) {PF_PrintError(); exit(EXIT_FAILURE);}}
@@ -217,10 +219,10 @@ Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
     int *pagenum = (int*)malloc(sizeof(int));
     *pagenum = -1;
     char *pagebuf;
-    while(PF_GetNextPage(fd,pagenum,pagebuf) != PFE_EOF) {
+    while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
         int num_records = *(int *)(&pagebuf[1]);
         for(int i = 0; i < num_records; i++) {
-            int rid = i + (*pagenum)<<16;
+            int rid = i + ((*pagenum)<<16);
             byte record[10000];
             int len = Table_Get(tbl, rid, record, 10000);
             callbackfn(callbackObj, rid, record, len);

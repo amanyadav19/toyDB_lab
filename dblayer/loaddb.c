@@ -60,16 +60,16 @@ loadCSV() {
     char buf[MAX_LINE_LEN];
     char *line = fgets(buf, MAX_LINE_LEN, fp);
     if (line == NULL) {
-	fprintf(stderr, "Unable to read data.csv\n");
-	exit(EXIT_FAILURE);
+	    fprintf(stderr, "Unable to read data.csv\n");
+	    exit(EXIT_FAILURE);
     }
     // Open main db file
     Schema *sch = parseSchema(line);
+
     Table *tbl;
-    if(Table_open(DB_NAME, sch, true, &tbl) < 0) {
+    if(Table_Open(DB_NAME, sch, true, &tbl) < 0) {
         return NULL;
     }
-
     char *tokens[MAX_TOKENS];
     char record[MAX_PAGE_SIZE];
 
@@ -82,23 +82,24 @@ loadCSV() {
     checkerr(err);
     int indexFD = PF_OpenFile(INDEX_NAME);
 	checkerr(indexFD);
-
+    int fd = PF_OpenFile(DB_NAME);
+    tbl->fd = fd;
     while ((line = fgets(buf, MAX_LINE_LEN, fp)) != NULL) {
-	int n = split(line, ",", tokens);
-	assert (n == sch->numColumns);
-	int len = encode(sch, tokens, record, sizeof(record));
-	RecId rid;
+        int n = split(line, ",", tokens);
+        assert (n == sch->numColumns);
+        int len = encode(sch, tokens, record, sizeof(record));
+        RecId rid;
+        printf("1\n");
+        rid = Table_Insert(tbl, record, len, &rid);
 
-	rid = Table_Insert(tbl, record, len, &rid);
+        printf("%d %s\n", rid, tokens[0]);
+        fflush(stdin);
+        // Indexing on the population column 
+        int population = atoi(tokens[2]);
 
-	printf("%d %s\n", rid, tokens[0]);
-
-	// Indexing on the population column 
-	int population = atoi(tokens[2]);
-
-	
-	// Use the population field as the field to index on
-    err = AM_InsertEntry(indexFD, 'i', 4, population, rid);
+        
+        // Use the population field as the field to index on
+        err = AM_InsertEntry(indexFD, 'i', 4, (char*)&population, rid);
     
     }
     fclose(fp);
