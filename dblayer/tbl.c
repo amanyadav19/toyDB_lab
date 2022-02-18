@@ -76,6 +76,7 @@ Table_Open(char *dbname, Schema *schema, bool overwrite, Table **ptable)
     (*ptable)->schema = (Schema *)malloc(sizeof(Schema));
     (*ptable)->dbname = strdup(dbname);
     (*ptable)->fd = -1;
+    (*ptable)->pages = 0;
     (*ptable)->schema->numColumns = schema->numColumns;
     (*ptable)->schema->columns = (ColumnDesc **)malloc(schema->numColumns * sizeof(ColumnDesc *));
 
@@ -127,11 +128,13 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
         printf("The table is not yet open\n");
         return 1;
     }
+
     int *pagenum = (int*)malloc(sizeof(int));
-    *pagenum = -1;
+    *pagenum = tbl->pages-1;
     char *pagebuf;
     int found = 0;
-    while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
+
+    if(PF_GetThisPage(fd,pagenum,&pagebuf) == PFE_OK) {
         // printf("%d pgno\n", *pagenum);
         // checking if the page has empty space for the record
         int pointer_to_free_space_value = *(int *)(&pagebuf[5]);
@@ -139,7 +142,6 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
         if(pointer_to_free_space_value - (9 + 4*(num_records+1)) >= len) {
             // can be inserted in this page
             found = 1;
-            break;
         }
         else {
             PF_UnfixPage(fd, *pagenum, false);
