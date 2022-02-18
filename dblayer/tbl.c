@@ -134,7 +134,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     char *pagebuf;
     int found = 0;
 
-    if(PF_GetThisPage(fd,pagenum,&pagebuf) == PFE_OK) {
+    if(PF_GetThisPage(fd,*pagenum,&pagebuf) == PFE_OK) {
         // printf("%d pgno\n", *pagenum);
         // checking if the page has empty space for the record
         int pointer_to_free_space_value = *(int *)(&pagebuf[5]);
