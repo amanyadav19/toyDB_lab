@@ -14,7 +14,6 @@ int  getLen(int slot, char *pageBuf) {
     int pointer_to_free_space_value = *(int *)(&pageBuf[5]);
     int num_records = *(int *)(&pageBuf[1]);
     int record_pointer_value = *(int *)(&pageBuf[9+4*slot]);
-    // printf("%d %d %d\n", slot, record_pointer_value, pointer_to_free_space_value);
     if(slot == num_records - 1) {
         return record_pointer_value - pointer_to_free_space_value;
     }
@@ -135,6 +134,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     int found = 0;
 
     if(PF_GetThisPage(fd,*pagenum,&pagebuf) == PFE_OK) {
+        // printf("pg no: get this %d\n", *pagenum);
         // printf("%d pgno\n", *pagenum);
         // checking if the page has empty space for the record
         int pointer_to_free_space_value = *(int *)(&pagebuf[5]);
@@ -155,6 +155,7 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
             printf("Error occured in insert. Returning...\n");
             return -1;
         }
+        tbl->pages++;
         *(bool*)(&pagebuf[0]) = true;
         *(int *)(&pagebuf[1]) = 0;
         *(int *)(&pagebuf[5]) = PF_PAGE_SIZE - 1;
@@ -198,7 +199,6 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
     int slot = rid & 0xFFFF;
     int pageNum = rid >> 16;
     int fd = tbl->fd;
-    // printf("%d %d %d\n", slot, pageNum, fd);
     if(fd < 0) {
         printf("The file is not open get operation on table. Returning...\n");
         return -1;
@@ -218,7 +218,7 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
     int length = getLen(slot, pagebuf);
     // printf("LEngth in get function : %d\n", length);
     for(int i = 0; i < min(maxlen, length); i ++) {
-        record[i] = (byte)pagebuf[i];
+        record[i] = (byte)pagebuf[offset + i];
     }
     PF_UnfixPage(fd, pageNum, false);
     return min(maxlen, length);
@@ -238,19 +238,16 @@ Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
     int *pagenum = (int*)malloc(sizeof(int));
     *pagenum = -1;
     char *pagebuf;
-    printf("I am here\n");
     while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
         int num_records = *(int *)(&pagebuf[1]);
-        printf("%d pgno, %d num_r\n", *pagenum, num_records);
+        PF_UnfixPage(fd, *pagenum, false);
         for(int i = 0; i < num_records; i++) {
             int rid = i + ((*pagenum)<<16);
             byte record[10000];
             int len = Table_Get(tbl, rid, record, 10000);
             callbackfn(callbackObj, rid, record, len);
         }
-        PF_UnfixPage(fd, *pagenum, false);
     }
-    printf("I have exited\n");
 
     // For each page obtained using PF_GetFirstPage and PF_GetNextPage
     //    for each record in that page,

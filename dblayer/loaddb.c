@@ -94,6 +94,7 @@ loadCSV() {
         int n = split(line, ",", tokens);
         assert (n == sch->numColumns);
         int len = encode(sch, tokens, record, sizeof(record));
+        printf("%d len encode\n", len);
         RecId rid;
         int ret = Table_Insert(tbl, record, len, &rid);
         if(ret < 0) {
