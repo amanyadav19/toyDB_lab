@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,13 +29,52 @@ Table_Open(char *dbname, Schema *schema, bool overwrite, Table **ptable)
     // allocate Table structure  and initialize and return via ptable
     // The Table structure only stores the schema. The current functionality
     // does not really need the schema, because we are only concentrating
-    // on record storage. 
+    // on record storage.
+
+    PF_Init();
+    int res = PF_CreateFile(dbname);
+
+    if (res == PFE_OK || (overwrite && res != PFE_OK))
+    {
+
+        if (res != PFE_OK && overwrite)
+        {
+            PF_DestroyFile(dbname); // what else necessaty for destroying file.. whould close page.. buffer.. etc.
+        }
+
+        ptable = (Table **)malloc(sizeof(Table *));
+        *ptable = (Table *)malloc(sizeof(Table));
+        (*ptable)->schema = (Schema *)malloc(sizeof(Schema));
+        (*ptable)->dbname = (char *)malloc(sizeof(char));
+        memcpy((*ptable)->dbname, dbname);
+        (*ptable)->schema->numColumns = schema->numColumns;
+        (*ptable)->schema->columns = (ColumnDesc **)malloc(schema->numColumns * sizeof(ColumnDesc *));
+
+        for (int i = 0; i < schema->numColumns; i++)
+        {
+            (*ptable)->schema->columns[i] = (ColumnDesc *)malloc(sizeof(ColumnDesc));
+            (*ptable)->schema->columns[i]->type = schema->columns[i]->type;
+            (*ptable)->schema->columns[i]->name = (char *)malloc(sizeof(char));
+            memcpy((*ptable)->schema->columns[i]->name, schema->columns[i]->name, sizeof(char));
+        }
+    }
+
+    return 0;
 }
 
 void
 Table_Close(Table *tbl) {
     UNIMPLEMENTED;
     // Unfix any dirty pages, close file.
+    
+    int fd = PF_OpenFile(tbl->dbname);
+
+    if(fd<0)
+        return -1;
+
+    int *pagenum;
+    char **pagebuf;
+    PF_CloseFile(fd);
 }
 
 
