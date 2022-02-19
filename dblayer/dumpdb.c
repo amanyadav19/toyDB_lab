@@ -31,8 +31,6 @@ encode(Schema *sch, char **fields, byte *record, int spaceLeft) {
     for (int i = 0; i < n; i++) {
         if(sch->columns[i]->type == VARCHAR) {
             int res = EncodeCString(fields[i], record + (totalSpace - spaceLeft), spaceLeft);
-            char decoded[1000];
-            DecodeCString(record + (totalSpace - spaceLeft), decoded, 10000);
             spaceLeft = spaceLeft - res;
         } else if(sch->columns[i]->type == INT) {
             int res = EncodeInt(atoi(fields[i]), record + (totalSpace - spaceLeft));
@@ -147,7 +145,7 @@ printRow(void *callbackObj, RecId rid, byte *row, int len) {
             else {
                  printf(",%s", decoded);
             }
-            spaceleft = spaceleft - l;
+            spaceleft = spaceleft - (l+2);
         } else if(schema->columns[i]->type == INT) {
             int decoded = DecodeInt((byte *)(row+(len-spaceleft)));
             if(i==0) {
@@ -176,7 +174,24 @@ printRow(void *callbackObj, RecId rid, byte *row, int len) {
 	 
 void
 index_scan(Table *tbl, Schema *schema, int indexFD, int op, int value) {
-    
+    printf("hello\n");
+    printf("%d\n", indexFD);
+    int scanDesc = AM_OpenIndexScan(indexFD, 'i',4, op, value );
+    while(true) {
+        printf("entered\n");
+        int rid = AM_FindNextEntry(scanDesc);
+        if(rid == AME_EOF) {
+            printf("broke\n");
+            break;
+        }
+        char record[MAX_PAGE_SIZE];
+        int t = Table_Get(tbl, rid, record, 10000);
+        if(t < 0) {
+            printf("Error in index scan. Exiting...\n");
+        }
+        printRow(schema, rid, record, t);
+    }
+    AM_CloseIndexScan(scanDesc);
     /*
     Open index ...
     while (true) {
@@ -240,7 +255,7 @@ main(int argc, char **argv) {
             printf("Error Occured in Table insert\n");
             return NULL;
         }
-        printf("%d %s\n", rid, tokens[0]);
+        // printf("%d %s\n", rid, tokens[0]);
         fflush(stdin);
         char record2[MAX_PAGE_SIZE];
         int t = Table_Get(tbl, rid, record2, 10000);
@@ -260,8 +275,8 @@ main(int argc, char **argv) {
     }
     fclose(fp);
     // Table_Close(tbl);
-    err = PF_CloseFile(indexFD);
-    checkerr(err);
+    // err = PF_CloseFile(indexFD);
+    // checkerr(err);
 
     char *schemaTxt = "Country:varchar,Capital:varchar,Population:int";
     Schema *schema = parseSchema(schemaTxt);
@@ -277,13 +292,13 @@ main(int argc, char **argv) {
         Table_Scan(tbl, schema, printRow);
     } else {
 	// index scan by default
-	int indexFD = PF_OpenFile(INDEX_NAME);
-	checkerr(indexFD);
+	// int indexFD = PF_OpenFile(INDEX_NAME);
+	// checkerr(indexFD);
 
 	// Ask for populations less than 100000, then more than 100000. Together they should
 	// yield the complete database.
-	index_scan(tbl, schema, indexFD, LESS_THAN_EQUAL, 100000);
-	index_scan(tbl, schema, indexFD, GREATER_THAN, 100000);
+	index_scan(tbl, schema, indexFD, LESS_THAN_EQUAL, 1000000);
+	index_scan(tbl, schema, indexFD, GREATER_THAN, 1000000);
     }
     Table_Close(tbl);
 }
