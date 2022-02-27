@@ -420,10 +420,12 @@ IMPLEMENTATION NOTES:
     /* Do linear scan of the buffer to find pages belonging to the file */
     bpage = PFfirstbpage;
     while (bpage != NULL) {
+        printf("pgno of unfixed page%d\n", bpage->page);
         if (bpage->fd == fd) {
             /* The file descriptor matches*/
             if (bpage->fixed) {
                 PFerrno = PFE_PAGEFIXED;
+                printf("Errorbuf1\n");
                 return(PFerrno);
             }
 
@@ -432,6 +434,7 @@ IMPLEMENTATION NOTES:
                                                   &bpage->fpage))!= PFE_OK))
                 /* error writing file */
             {
+                printf("Errorbuf2\n");
                 return(error);
             }
             bpage->dirty = FALSE;

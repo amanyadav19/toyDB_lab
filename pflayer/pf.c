@@ -347,6 +347,7 @@ IMPLEMENTATION NOTES:
         close(PFftab[fd].unixfd);
         return(PFerrno);
     }
+    printf("%d %d\n", PFftab[fd].hdr.firstfree, PFftab[fd].hdr.numpages);
     /* set file header to be not changed */
     PFftab[fd].hdrchanged = FALSE;
 
@@ -382,12 +383,14 @@ RETURN VALUE:
     if (PFinvalidFd(fd)) {
         /* invalid file descriptor */
         PFerrno = PFE_FD;
+        printf("error-2\n");
         return(PFerrno);
     }
 
 
     /* Flush all buffers for this file */
     if ( (error=PFbufReleaseFile(fd,PFwritefcn)) != PFE_OK) {
+        printf("error-1\n");
         return(error);
     }
 
@@ -397,17 +400,23 @@ RETURN VALUE:
         if ((error=lseek(PFftab[fd].unixfd,(unsigned)0,L_SET)) == -1) {
             /* seek error */
             PFerrno = PFE_UNIX;
+            printf("error0\n");
             return(PFerrno);
         }
 
         /* write header*/
+        printf("close file header values %d %d %d\n",PFftab[fd].unixfd,  PFftab[fd].hdr.firstfree, PFftab[fd].hdr.numpages);
+
         if((error=write(PFftab[fd].unixfd, (char *)&PFftab[fd].hdr,
                         PF_HDR_SIZE))!=PF_HDR_SIZE) {
             if (error <0) {
+                printf("error1\n");
                 PFerrno = PFE_UNIX;
             } else	{
+                printf("error2\n");
                 PFerrno = PFE_HDRWRITE;
             }
+            printf("error3\n");
             return(PFerrno);
         }
         PFftab[fd].hdrchanged = FALSE;

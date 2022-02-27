@@ -55,27 +55,41 @@ Table_Open(char *dbname, Schema *schema, bool overwrite, Table **ptable)
     // on record storage.
 
     PF_Init();
-    int res = PF_CreateFile(dbname);
-
-
-    if (res != PFE_OK && overwrite)
-    {
-        res = PF_DestroyFile(dbname); // what else necessaty for destroying file.. whould close page.. buffer.. etc.
-        if(res != PFE_OK) {
-            printf("Something bad happened. Returning...\n");
-            return 1;
-        }
-        res = PF_CreateFile(dbname);
-        if(res != PFE_OK) {
-            printf("The code is buggy. Returning ...\n");
-            return 1;
-        }
+    int fd= PF_OpenFile(dbname);
+    if(fd<0){
+         int err = PF_CreateFile(dbname);
+         checkerr(err);
+         fd= PF_OpenFile(dbname);
+         checkerr(fd);
     }
+    else
+    {
+        printf("went here \n");
+        if(overwrite)
+        {   
+            printf("here too\n");
+            checkerr(PF_DestroyFile(dbname));
+            int err = PF_CreateFile(dbname);
+            checkerr(err);
+            fd= PF_OpenFile(dbname);
+            checkerr(fd);
+    }}
+
     *ptable = (Table *)malloc(sizeof(Table));
+    (*ptable)->fd = fd;
     (*ptable)->schema = (Schema *)malloc(sizeof(Schema));
     (*ptable)->dbname = strdup(dbname);
-    (*ptable)->fd = -1;
     (*ptable)->pages = 0;
+    int *pagenum = (int*)malloc(sizeof(int));
+    *pagenum = -1;
+    char ** pagebuf;
+    while(PF_GetNextPage(fd,pagenum, &pagebuf) != PFE_EOF) {
+        (*ptable)->pages++;
+        int ret =PF_UnfixPage(fd, *pagenum, false);
+        if (ret < 0) {
+            printf("This is bad1.\n");
+        }
+    }
     (*ptable)->schema->numColumns = schema->numColumns;
     (*ptable)->schema->columns = (ColumnDesc **)malloc(schema->numColumns * sizeof(ColumnDesc *));
 
@@ -112,7 +126,10 @@ Table_Close(Table *tbl) {
             PF_UnfixPage(fd, *pagenum - 1,false);
         }
     }
-    PF_CloseFile(fd);
+    int ret = PF_CloseFile(fd);
+    if (ret < 0) {
+        printf("Boom!\n");
+    }
 }
 
 
@@ -144,7 +161,10 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
             found = 1;
         }
         else {
-            PF_UnfixPage(fd, *pagenum, false);
+            int ret =PF_UnfixPage(fd, *pagenum, false);
+             if (ret < 0) {
+        printf("This is bad1.\n");
+    }
         }
     }
     // printf("Iterated through pages found empty pageno : %d\n", *pagenum);
@@ -182,7 +202,10 @@ Table_Insert(Table *tbl, byte *record, int len, RecId *rid) {
     // }
     // printf("\n");
     // printf("%d %d %d %d\n", *(int *)(&pagebuf[1]), *(int *)(&pagebuf[5]), *(int *)(&pagebuf[9]), *(int *)(&pagebuf[12]));
-    PF_UnfixPage(fd, *pagenum, true);
+    int ret = PF_UnfixPage(fd, *pagenum, true);
+    if (ret < 0) {
+        printf("This is bad.\n");
+    }
     // printf("Rid before exiting insert: %d\n", *rid);
     free(pagenum);
     return 0;
@@ -200,7 +223,7 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
     int pageNum = rid >> 16;
     int fd = tbl->fd;
     if(fd < 0) {
-        printf("The file is not open get operation on table. Returning...\n");
+        printf("The file is not open, get operation on table. Returning...\n");
         return -1;
     }
     char *pagebuf;
@@ -216,10 +239,7 @@ Table_Get(Table *tbl, RecId rid, byte *record, int maxlen) {
         return -1;
     }
     int length = getLen(slot, pagebuf);
-    // printf("LEngth in get function : %d\n", length);
-    for(int i = 0; i < min(maxlen, length); i ++) {
-        record[i] = (byte)pagebuf[offset + i];
-    }
+    memcpy(record, pagebuf + offset,min(maxlen, length));
     PF_UnfixPage(fd, pageNum, false);
     return min(maxlen, length);
     // PF_GetThisPage(pageNum)
@@ -238,8 +258,10 @@ Table_Scan(Table *tbl, void *callbackObj, ReadFunc callbackfn) {
     int *pagenum = (int*)malloc(sizeof(int));
     *pagenum = -1;
     char *pagebuf;
+    printf("I am here %d\n", fd);
     while(PF_GetNextPage(fd,pagenum,&pagebuf) != PFE_EOF) {
         int num_records = *(int *)(&pagebuf[1]);
+        printf("%d num recs.\n", num_records);
         PF_UnfixPage(fd, *pagenum, false);
         for(int i = 0; i < num_records; i++) {
             int rid = i + ((*pagenum)<<16);
