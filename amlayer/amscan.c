@@ -45,7 +45,6 @@ AM_OpenIndexScan(
     int searchpageNum;
 
 
-
     /* check the parameters */
     if (fileDesc < 0)  {
         AM_Errno = AME_FD;
@@ -66,7 +65,6 @@ AM_OpenIndexScan(
             break;
         }
     }
-
     /* scan table is full */
     if (scanDesc > MAXSCANS - 1) {
         AM_Errno = AME_SCAN_TAB_FULL;
@@ -79,7 +77,6 @@ AM_OpenIndexScan(
 
     /* initialise AM_LeftPageNum */
     AM_LeftPageNum = GetLeftPageNum(fileDesc);
-
     /* scan of all keys */
     if (value == NULL) {
         AM_scanTable[scanDesc].fileDesc = fileDesc;
@@ -94,7 +91,6 @@ AM_OpenIndexScan(
         AM_Check;
         return(scanDesc);
     }
-
     /* search for the pagenumber and index of value */
     status = AM_Search(fileDesc,attrType,attrLength,value,&pageNum,&pageBuf,&index);
     searchpageNum = pageNum;
@@ -109,7 +105,6 @@ AM_OpenIndexScan(
     recSize = attrLength + AM_ss;
     AM_scanTable[scanDesc].fileDesc = fileDesc;
     AM_scanTable[scanDesc].op = op;
-
     /* value is not in leaf but if inserted will have to be inserted after the last
        key */
     if (index > header->numKeys) {
@@ -127,7 +122,6 @@ AM_OpenIndexScan(
     }
     AM_scanTable[scanDesc].pageNum = pageNum;
     AM_scanTable[scanDesc].index = index;
-
     /* case on op */
 
     switch(op) {

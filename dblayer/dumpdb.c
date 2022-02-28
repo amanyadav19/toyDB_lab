@@ -25,7 +25,6 @@ printRow(void *callbackObj, RecId rid, byte *row, int len) {
     Schema *schema = (Schema *) callbackObj;
     byte *cursor = row;
     int spaceleft = len;
-    printf("Hi\n");
     for(int i = 0; i < schema->numColumns; i++) {
         if(schema->columns[i]->type == VARCHAR) {
             char decoded[1000];
@@ -62,17 +61,14 @@ printRow(void *callbackObj, RecId rid, byte *row, int len) {
 	 
 void
 index_scan(Table *tbl, Schema *schema, int indexFD, int op, int value) {
-    int scanDesc = AM_OpenIndexScan(indexFD, 'i',4, op, value );
+    int scanDesc = AM_OpenIndexScan(indexFD, 'i',4, op, (char*)&value );
     while(true) {
-        printf("entered\n");
         int rid = AM_FindNextEntry(scanDesc);
         if(rid == AME_EOF) {
-            printf("broke\n");
             break;
         }
         char record[MAX_PAGE_SIZE];
         int t = Table_Get(tbl, rid, record, 10000);
-        record[t] = '\0';
         if(t < 0) {
             printf("Error in index scan. Exiting...\n");
         }
@@ -97,7 +93,6 @@ main(int argc, char **argv) {
     Schema *schema = parseSchema(schemaTxt);
     Table *tbl;
     Table_Open(DB_NAME, schema, false, &tbl);
-    printf("%d num pages\n", tbl->pages);
     if (argc == 2 && *(argv[1]) == 's') {
         Table_Scan(tbl, schema, printRow);
     } else {
@@ -108,7 +103,23 @@ main(int argc, char **argv) {
 	// Ask for populations less than 100000, then more than 100000. Together they should
 	// yield the complete database.
 	// index_scan(tbl, schema, indexFD, LESS_THAN_EQUAL, 1000000);
-	// index_scan(tbl, schema, indexFD, GREATER_THAN, 1000000);
+    int val;
+    if(strcmp(argv[2], "GREATER_THAN") == 0) {
+        val = GREATER_THAN;
+    }
+    else if(strcmp(argv[2], "LESS_THAN_EQUAL") == 0) {
+        val = LESS_THAN_EQUAL;
+    }
+    else if(strcmp(argv[2], "LESS_THAN") == 0) {
+        val = LESS_THAN;
+    }
+    else if(strcmp(argv[2], "GREATER_THAN_EQUAL") == 0) {
+        val = GREATER_THAN_EQUAL;
+    }
+    else if(strcmp(argv[2], "EQUAL") == 0) {
+        val = EQUAL;
+    }
+	index_scan(tbl, schema, indexFD, val, atoi(argv[3]));
     }
     Table_Close(tbl);
 }

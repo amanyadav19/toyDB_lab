@@ -122,10 +122,4 @@ loadCSV() {
 int
 main() {
     loadCSV();
-    char *schemaTxt = "Country:varchar,Capital:varchar,Population:int";
-    Schema *schema = parseSchema(schemaTxt);
-    Table *tbl;
-    Table_Open(DB_NAME, schema, false, &tbl);
-    printf("%d num pages\n", tbl->pages);
-
 }
