@@ -25,12 +25,18 @@ in codec.c to convert strings into compact binary representations
  */
 int
 encode(Schema *sch, char **fields, byte *record, int spaceLeft) {
+    // for each field
+    //    switch corresponding schema type is
+    //        VARCHAR : EncodeCString
+    //        INT : EncodeInt
+    //        LONG: EncodeLong
+    // return the total number of bytes encoded into record
     int n = sch->numColumns;
     int totalSpace = spaceLeft;
     for (int i = 0; i < n; i++) {
         if(sch->columns[i]->type == VARCHAR) {
             int res = EncodeCString(fields[i], record + (totalSpace - spaceLeft), spaceLeft);
-            spaceLeft = spaceLeft - res;
+            spaceLeft = spaceLeft - res; // counting how much space is left
         } else if(sch->columns[i]->type == INT) {
             int res = EncodeInt(atoi(fields[i]), record + (totalSpace - spaceLeft));
             spaceLeft = spaceLeft - res;
@@ -40,12 +46,6 @@ encode(Schema *sch, char **fields, byte *record, int spaceLeft) {
         }
     }
     return totalSpace - spaceLeft;
-    // for each field
-    //    switch corresponding schema type is
-    //        VARCHAR : EncodeCString
-    //        INT : EncodeInt
-    //        LONG: EncodeLong
-    // return the total number of bytes encoded into record
 }
 
 Schema *
@@ -67,6 +67,7 @@ loadCSV() {
     Schema *sch = parseSchema(line);
 
     Table *tbl;
+    // Opening the table
     if(Table_Open(DB_NAME, sch, false, &tbl) < 0) {
         return NULL;
     }
@@ -74,6 +75,7 @@ loadCSV() {
     char record[MAX_PAGE_SIZE];
 
     int err;
+    // Creating index and opening the file
     if(sch->columns[2]->type == INT) {
         err = AM_CreateIndex(DB_NAME, 0, 'i', 4);
     } else {
@@ -82,9 +84,11 @@ loadCSV() {
     checkerr(err);
     int indexFD = PF_OpenFile(INDEX_NAME);
 	checkerr(indexFD);
+    // iterate over all lines in the file
     while ((line = fgets(buf, MAX_LINE_LEN, fp)) != NULL) {
         int n = split(line, ",", tokens);
         assert (n == sch->numColumns);
+        // encode the record and insert into table
         int len = encode(sch, tokens, record, sizeof(record));
         RecId rid;
         int ret = Table_Insert(tbl, record, len, &rid);
@@ -94,24 +98,14 @@ loadCSV() {
         }
         printf("%d %s\n", rid, tokens[0]);
         fflush(stdin);
-        // char record2[MAX_PAGE_SIZE];
-        // int t = Table_Get(tbl, rid, record2, 10000);
-        // if ( t < 0) {
-        //     printf("Bad\n");
-        //     return NULL;
-        // }
-        // for(int i = 0; i < t; i++) {
-        //     printf("%c", record2[i]);
-        // }
-
         // Indexing on the population column 
         int population = atoi(tokens[2]);
 
-        
         // Use the population field as the field to index on
         err = AM_InsertEntry(indexFD, 'i', 4, (char*)&population, rid);
     
     }
+    // close the csv file, table, and index file
     fclose(fp);
     Table_Close(tbl);
     err = PF_CloseFile(indexFD);

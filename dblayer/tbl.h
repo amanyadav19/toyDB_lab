@@ -18,6 +18,8 @@ typedef struct {
     ColumnDesc **columns; // array of column descriptors
 } Schema;
 
+
+// The structure of table has schema, file descriptor and number of pages
 typedef struct {
     Schema *schema;
     char *dbname;
